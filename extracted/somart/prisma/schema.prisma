@@ -1,16 +1,15 @@
 // SoMart Prisma schema.
-// Dev default: SQLite (zero setup). Production: change provider to "postgresql"
-// and set DATABASE_URL — no SQLite-only features are used (string statuses, no enums),
-// so switching is a one-line provider change + migrate.
+// Production: PostgreSQL (persistent, Render Postgres).
+// Local dev:  set DATABASE_URL to a local Postgres URL or use SQLite by
+//             reverting provider to "sqlite" and uncommenting the adapter
+//             logic in server/lib/prisma.js.
 
 generator client {
-  provider        = "prisma-client-js"
-  engineType      = "client"
-  previewFeatures = ["queryCompiler", "driverAdapters"]
+  provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "sqlite" // change to "postgresql" for production
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 

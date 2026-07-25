@@ -1,0 +1,43 @@
+{
+  "name": "somart",
+  "version": "1.0.0",
+  "description": "SoMart — Your Campus. Your Marketplace. A closed-campus peer-to-peer marketplace.",
+  "type": "module",
+  "scripts": {
+    "dev": "concurrently -n server,client -c blue,green \"node --watch server/index.js\" \"npm run dev --prefix client\"",
+    "build": "npm install --prefix client && npm run build --prefix client",
+    "start": "cross-env NODE_ENV=production node server/index.js",
+    "db:push": "prisma db push",
+    "db:migrate": "prisma migrate dev --name init",
+    "db:seed": "node prisma/seed.js",
+    "postinstall": "prisma generate || echo \"prisma generate failed (offline?) — run npx prisma generate manually\"",
+    "db:setup": "node prisma/setup-db.js",
+    "demo:seed": "node prisma/demo-seed.js",
+    "demo:remove": "node prisma/demo-seed.js --remove"
+  },
+  "prisma": {
+    "seed": "node prisma/seed.js"
+  },
+  "dependencies": {
+    "@prisma/adapter-better-sqlite3": "^6.19.0",
+    "@prisma/client": "^6.19.0",
+    "bcryptjs": "^2.4.3",
+    "better-sqlite3": "^13.0.0",
+    "cookie-parser": "^1.4.6",
+    "cross-env": "^7.0.3",
+    "dotenv": "^16.6.1",
+    "express": "^4.19.2",
+    "express-rate-limit": "^7.4.0",
+    "jsonwebtoken": "^9.0.2",
+    "multer": "^1.4.5-lts.1"
+  },
+  "devDependencies": {
+    "concurrently": "^9.0.0",
+    "prisma": "^6.19.0"
+  },
+  "overrides": {
+    "@prisma/adapter-better-sqlite3": {
+      "better-sqlite3": "$better-sqlite3"
+    }
+  }
+}

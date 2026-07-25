@@ -1,0 +1,226 @@
+// SoMart Prisma schema.
+// Dev default: SQLite (zero setup). Production: change provider to "postgresql"
+// and set DATABASE_URL — no SQLite-only features are used (string statuses, no enums),
+// so switching is a one-line provider change + migrate.
+
+generator client {
+  provider        = "prisma-client-js"
+  engineType      = "client"
+  previewFeatures = ["queryCompiler", "driverAdapters"]
+}
+
+datasource db {
+  provider = "sqlite" // change to "postgresql" for production
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String   @id @default(cuid())
+  fullName      String
+  email         String   @unique
+  passwordHash  String
+  emailVerified Boolean  @default(false)
+  batch         String?
+  phone         String?
+  profileImage  String?
+  contactPref   String   @default("chat") // chat | phone
+  role          String   @default("student") // student | admin
+  accountStatus String   @default("active") // active | suspended | blocked
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  listings        Listing[]
+  purchases       Transaction[]  @relation("buyer")
+  sales           Transaction[]  @relation("seller")
+  sentMessages    Message[]
+  conversationsA  Conversation[] @relation("userA")
+  conversationsB  Conversation[] @relation("userB")
+  reviewsGiven    Review[]       @relation("reviewer")
+  reviewsReceived Review[]       @relation("reviewee")
+  reports         Report[]       @relation("reporter")
+  reportsAgainst  Report[]       @relation("reported")
+  notifications   Notification[]
+  emailTokens     EmailToken[]
+}
+
+model EmailToken {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  codeHash  String
+  purpose   String // verify_email | reset_password
+  expiresAt DateTime
+  usedAt    DateTime?
+  attempts  Int       @default(0)
+  createdAt DateTime  @default(now())
+}
+
+model Listing {
+  id              String    @id @default(cuid())
+  sellerId        String
+  seller          User      @relation(fields: [sellerId], references: [id])
+  title           String
+  description     String
+  category        String
+  listingType     String // sale | rent
+  price           Float?
+  rentalRate      Float?
+  rentalUnit      String? // day | week | month
+  securityDeposit Float?
+  minRentalPeriod Int?
+  maxRentalPeriod Int?
+  availableFrom   DateTime?
+  availableUntil  DateTime?
+  condition       String // new | like_new | good | fair
+  negotiable      Boolean   @default(false)
+  location        String
+  status          String    @default("active") // active | paused | deal_in_progress | sold | rented | inactive | removed | deleted
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  images       ListingImage[]
+  transactions Transaction[]
+  reports      Report[]
+}
+
+model ListingImage {
+  id        String  @id @default(cuid())
+  listingId String
+  listing   Listing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  url       String
+  sortOrder Int     @default(0)
+}
+
+model Transaction {
+  id                    String    @id @default(cuid())
+  listingId             String
+  listing               Listing   @relation(fields: [listingId], references: [id])
+  buyerId               String
+  buyer                 User      @relation("buyer", fields: [buyerId], references: [id])
+  sellerId              String
+  seller                User      @relation("seller", fields: [sellerId], references: [id])
+  transactionType       String // sale | rental
+  listedAmount          Float
+  agreedAmount          Float?
+  buyerAmountConfirmed  Boolean   @default(false)
+  sellerAmountConfirmed Boolean   @default(false)
+  status                String    @default("request_sent")
+  // sale:   request_sent | accepted | deal_in_progress | awaiting_handover | completed | cancelled | rejected
+  // rental: + rented | awaiting_return | returned
+  createdAt             DateTime  @default(now())
+  completedAt           DateTime?
+
+  rentalDetail RentalDetail?
+  otps         OtpVerification[]
+  reviews      Review[]
+}
+
+model RentalDetail {
+  transactionId     String      @id
+  transaction       Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+  rentalStartDate   DateTime?
+  rentalEndDate     DateTime?
+  rentalRate        Float?
+  rentalUnit        String?
+  totalRentalAmount Float?
+  securityDeposit   Float?
+  handedOverAt      DateTime?
+  returnedAt        DateTime?
+}
+
+// Covers handover OTPs (phase="handover") and rental-return OTPs (phase="return")
+model OtpVerification {
+  id                String      @id @default(cuid())
+  transactionId     String
+  transaction       Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+  phase             String // handover | return
+  buyerOtpHash      String
+  sellerOtpHash     String
+  buyerOtpVerified  Boolean     @default(false)
+  sellerOtpVerified Boolean     @default(false)
+  buyerAttempts     Int         @default(0)
+  sellerAttempts    Int         @default(0)
+  generatedAt       DateTime    @default(now())
+  expiresAt         DateTime
+  buyerVerifiedAt   DateTime?
+  sellerVerifiedAt  DateTime?
+  active            Boolean     @default(true)
+
+  @@index([transactionId, phase])
+}
+
+model Conversation {
+  id        String    @id @default(cuid())
+  userAId   String
+  userA     User      @relation("userA", fields: [userAId], references: [id])
+  userBId   String
+  userB     User      @relation("userB", fields: [userBId], references: [id])
+  listingId String?
+  updatedAt DateTime  @updatedAt
+  createdAt DateTime  @default(now())
+  messages  Message[]
+
+  @@unique([userAId, userBId, listingId])
+}
+
+model Message {
+  id             String       @id @default(cuid())
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  senderId       String
+  sender         User         @relation(fields: [senderId], references: [id])
+  body           String
+  readAt         DateTime?
+  createdAt      DateTime     @default(now())
+}
+
+model Review {
+  id            String      @id @default(cuid())
+  transactionId String
+  transaction   Transaction @relation(fields: [transactionId], references: [id])
+  reviewerId    String
+  reviewer      User        @relation("reviewer", fields: [reviewerId], references: [id])
+  revieweeId    String
+  reviewee      User        @relation("reviewee", fields: [revieweeId], references: [id])
+  rating        Int
+  comment       String?
+  createdAt     DateTime    @default(now())
+
+  @@unique([transactionId, reviewerId])
+}
+
+model Report {
+  id             String   @id @default(cuid())
+  reporterId     String
+  reporter       User     @relation("reporter", fields: [reporterId], references: [id])
+  reportedUserId String?
+  reportedUser   User?    @relation("reported", fields: [reportedUserId], references: [id])
+  listingId      String?
+  listing        Listing? @relation(fields: [listingId], references: [id])
+  reason         String // fake_listing | fraud | misleading | inappropriate | damaged_item | misconduct | other
+  details        String?
+  status         String   @default("open") // open | reviewed | dismissed | actioned
+  createdAt      DateTime @default(now())
+}
+
+model Notification {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      String
+  title     String
+  body      String?
+  link      String?
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+}
+
+model AdminAuditLog {
+  id         String   @id @default(cuid())
+  adminId    String
+  action     String
+  targetType String?
+  targetId   String?
+  reason     String?
+  createdAt  DateTime @default(now())
+}

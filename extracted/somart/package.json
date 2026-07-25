@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "concurrently -n server,client -c blue,green \"node --watch server/index.js\" \"npm run dev --prefix client\"",
-    "build": "npm install --prefix client && npm run build --prefix client",
+    "build": "npm install --prefix client && npm run build --prefix client && prisma db push --accept-data-loss",
     "start": "cross-env NODE_ENV=production node server/index.js",
     "db:push": "prisma db push",
     "db:migrate": "prisma migrate dev --name init",
